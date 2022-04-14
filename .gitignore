@@ -6,6 +6,7 @@
 *.ko
 *.obj
 *.elf
+*.bc
 
 # Linker output
 *.ilk
@@ -50,3 +51,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+pspg
+
+/config.cache
+/config.log
+/config.status
+/config.make
