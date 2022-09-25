@@ -2,7 +2,7 @@
 
 MODULE_big = orafce_mail
 OBJS = orafce_mail.o
-DATA = orafce_mail--1.0.sql
+DATA = orafce_mail--1.1.sql
 EXTENSION = orafce_mail
 
 REGRESS = init orafce_mail
