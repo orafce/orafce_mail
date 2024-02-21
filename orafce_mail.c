@@ -22,7 +22,12 @@ PG_FUNCTION_INFO_V1(orafce_mail_send_attach_varchar2);
 PG_FUNCTION_INFO_V1(orafce_mail_dbms_mail_send);
 
 void _PG_init(void);
+
+#if PG_VERSION_NUM < 150000
+
 void _PG_fini(void);
+
+#endif
 
 Oid		ORAFCE_MAIL_ROLE_USE = InvalidOid;
 Oid		ORAFCE_MAIL_ROLE_CONFIG_URL = InvalidOid;
@@ -1005,7 +1010,7 @@ _PG_init(void)
 {
 	/* Define custom GUC variables. */
 	DefineCustomStringVariable("orafce_mail.smtp_server_url",
-									"smtp server url.",
+									"smtp server url",
 									NULL,
 									&orafce_smtp_url,
 									NULL,
@@ -1041,6 +1046,8 @@ _PG_init(void)
 
 }
 
+#if PG_VERSION_NUM < 150000
+
 void
 _PG_fini(void)
 {
@@ -1054,3 +1061,5 @@ _PG_fini(void)
 
 	curl_global_cleanup();
 }
+
+#endif

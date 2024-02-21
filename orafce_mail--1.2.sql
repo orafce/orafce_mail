@@ -2,6 +2,24 @@
 
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "CREATE EXTENSION orafce_mail" to load this file. \quit
+
+/*
+ * There is not dependency between roles and extensions?
+ */
+DO $$
+BEGIN
+  IF NOT EXISTS(SELECT * FROM pg_roles WHERE rolname::text = 'orafce_mail') THEN
+    CREATE ROLE orafce_mail NOLOGIN;
+  END IF;
+  IF NOT EXISTS(SELECT * FROM pg_roles WHERE rolname::text = 'orafce_mail_config_url') THEN
+    CREATE ROLE orafce_mail_config_url NOLOGIN;
+  END IF;
+  IF NOT EXISTS(SELECT * FROM pg_roles WHERE rolname::text = 'orafce_mail_config_userpwd') THEN
+    CREATE ROLE orafce_mail_config_userpwd NOLOGIN;
+  END IF;
+END;
+$$;
+
 CREATE SCHEMA utl_mail;
 CREATE SCHEMA dbms_mail;
 
@@ -65,20 +83,3 @@ CREATE PROCEDURE dbms_mail.send(
 	body oracle.varchar2)
 AS 'MODULE_PATHNAME','orafce_mail_dbms_mail_send'
 LANGUAGE C;
-
-/*
- * There is not dependency between roles and extensions?
- */
-DO $$
-BEGIN
-  IF NOT EXISTS(SELECT * FROM pg_roles WHERE rolname::text = 'orafce_mail') THEN
-    CREATE ROLE orafce_mail NOLOGIN;
-  END IF;
-  IF NOT EXISTS(SELECT * FROM pg_roles WHERE rolname::text = 'orafce_mail_config_url') THEN
-    CREATE ROLE orafce_mail_config_url NOLOGIN;
-  END IF;
-  IF NOT EXISTS(SELECT * FROM pg_roles WHERE rolname::text = 'orafce_mail_config_userpwd') THEN
-    CREATE ROLE orafce_mail_config_userpwd NOLOGIN;
-  END IF;
-END;
-$$;
