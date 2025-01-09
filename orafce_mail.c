@@ -29,9 +29,9 @@ void _PG_fini(void);
 
 #endif
 
-Oid		ORAFCE_MAIL_ROLE_USE = InvalidOid;
-Oid		ORAFCE_MAIL_ROLE_CONFIG_URL = InvalidOid;
-Oid		ORAFCE_MAIL_ROLE_CONFIG_USERPWD = InvalidOid;
+static Oid		ORAFCE_MAIL_ROLE_USE = InvalidOid;
+static Oid		ORAFCE_MAIL_ROLE_CONFIG_URL = InvalidOid;
+static Oid		ORAFCE_MAIL_ROLE_CONFIG_USERPWD = InvalidOid;
 
 typedef struct
 {
@@ -57,8 +57,8 @@ typedef struct
 /*
  * Invisible super user settings
  */
-char	   *orafce_smtp_url = NULL;
-char	   *orafce_smtp_userpwd = NULL;
+static char	   *orafce_smtp_url = NULL;
+static char	   *orafce_smtp_userpwd = NULL;
 
 /*
 * Interrupt support is dependent on CURLOPT_XFERINFOFUNCTION which is
@@ -66,8 +66,8 @@ char	   *orafce_smtp_userpwd = NULL;
 */
 #if LIBCURL_VERSION_NUM >= 0x072700 /* 7.39.0 */
 
-pqsigfunc pgsql_interrupt_handler = NULL;
-int interrupt_requested = 0;
+static pqsigfunc pgsql_interrupt_handler = NULL;
+static int		 interrupt_requested = 0;
 
 static bool
 check_priv_of_role(Oid *oidptr, char *rolname)
