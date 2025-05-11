@@ -66,8 +66,12 @@ static char	   *orafce_smtp_userpwd = NULL;
 */
 #if LIBCURL_VERSION_NUM >= 0x072700 /* 7.39.0 */
 
+#if PG_VERSION_NUM < 180000
+
 static pqsigfunc pgsql_interrupt_handler = NULL;
-static int		 interrupt_requested = 0;
+static int		interrupt_requested = 0;
+
+#endif
 
 static bool
 check_priv_of_role(Oid *oidptr, char *rolname)
@@ -77,7 +81,6 @@ check_priv_of_role(Oid *oidptr, char *rolname)
 
 	return has_privs_of_role(GetUserId(), *oidptr);
 }
-
 
 static void
 add_line(DynamicBuffer *dbuf, char *str)
@@ -130,9 +133,19 @@ progress_callback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_
 	(void) ultotal;
 	(void) ulnow;
 
-	/* elog(DEBUG3, "http_interrupt_requested = %d", http_interrupt_requested); */
+#if PG_VERSION_NUM < 180000
+
 	return interrupt_requested;
+
+#else
+
+	/* Check the PgSQL global flags */
+	return QueryCancelPending || ProcDiePending;
+
+#endif
 }
+
+#if PG_VERSION_NUM < 180000
 
 /*
 * We register this callback with the PgSQL signal handler to
@@ -148,6 +161,8 @@ http_interrupt_handler(int sig)
 
 	return;
 }
+
+#endif
 
 #endif /* 7.39.0 */
 
@@ -470,6 +485,12 @@ orafce_send_mail(char *sender,
 				 errmsg("orafce.smtp_url is not specified"),
 				 errdetail("The address (url) of smtp service is not known.")));
 
+#if PG_VERSION_NUM < 180000
+
+	interrupt_requested = 0;
+
+#endif
+
 	curl = curl_easy_init();
 	if (curl)
 	{
@@ -671,7 +692,20 @@ orafce_send_mail(char *sender,
 
 #endif
 
+#if PG_VERSION_NUM >= 180000
+
+			(void) curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+
+#endif
+
 			res = curl_easy_perform(curl);
+
+#if LIBCURL_VERSION_NUM >= 0x072700 /* 7.39.0 */
+
+			if (res == CURLE_ABORTED_BY_CALLBACK)
+				elog(ERROR, "canceling statement due to user request");
+
+#endif
 
 			if (res != CURLE_OK)
 				ereport(ERROR,
@@ -1039,8 +1073,11 @@ _PG_init(void)
 	/* and store the existing one so we can call it when we're */
 	/* through with our work */
 
+#if PG_VERSION_NUM < 180000
+
 	pgsql_interrupt_handler = pqsignal(SIGINT, http_interrupt_handler);
-	interrupt_requested = 0;
+
+#endif
 
 #endif
 
