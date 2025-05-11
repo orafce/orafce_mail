@@ -1,0 +1,54 @@
+{
+   "name": "orafce",
+   "abstract": "Implementation of utl_mail and DBMS_MAIL packages",
+   "description": "Allow to send a mail with possible attachment from Postgres",
+   "version": "1.2.1",
+   "maintainer": [
+      "Pavel Stehule <pavel.stehule@gmail.com>",
+   ],
+   "license": {
+      "PostgreSQL": "http://www.postgresql.org/about/licence"
+   },
+   "prereqs": {
+      "runtime": {
+         "requires": {
+            "plpgsql": 0,
+            "PostgreSQL": "11.0.0",
+            "orafce": "4.0.0"
+         },
+         "recommends": {
+            "PostgreSQL": "17.0.0"
+         }
+      }
+   },
+   "provides": {
+     "orafce_mail": {
+       "docfile": "README.md",
+       "version": "1.2.1",
+       "abstract": "Implementation of utl_mail and DBMS_MAIL packages"
+     }
+   },
+   "resources": {
+      "homepage": "http://www.pgsql.cz/index.php/Oracle_functionality_%28en%29",
+      "repository": {
+        "url": "https://github.com/orafce/orafce_mail",
+        "web":  "https://github.com/orafce/orafce_mail",
+        "type": "git"
+      }
+   },
+   "generated_by": "Pavel Stehule",
+   "meta-spec": {
+      "version": "1.0.0",
+      "url": "http://pgxn.org/meta/spec.txt"
+   },
+   "release_status": "stable",
+   "tags": [
+      "oracle",
+      "compatibility",
+      "user function",
+      "custom function",
+      "send mail",
+      "attachments",
+      "curl",
+   ]
+}
