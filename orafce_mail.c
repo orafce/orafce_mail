@@ -65,7 +65,7 @@ static char	   *orafce_smtp_userpwd = NULL;
 #if PG_VERSION_NUM < 180000
 
 static pqsigfunc pgsql_interrupt_handler = NULL;
-static int		interrupt_requested = 0;
+static volatile sig_atomic_t interrupt_requested = 0;
 
 #endif
 
@@ -131,7 +131,13 @@ progress_callback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_
 
 #if PG_VERSION_NUM < 180000
 
-	return interrupt_requested;
+	/*
+	 * interrupt_requested only ever reports SIGINT, so on its own it would
+	 * make the transfer deaf to pg_terminate_backend().  The flags the
+	 * standard die() and StatementCancelHandler() handlers set cover both,
+	 * and are what the PG 18 branch below has always used.
+	 */
+	return interrupt_requested || QueryCancelPending || ProcDiePending;
 
 #else
 
@@ -151,9 +157,23 @@ progress_callback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_
 static void
 http_interrupt_handler(int sig)
 {
+	int			save_errno = errno;
+
 	/* Handle the signal here */
 	interrupt_requested = sig;
-	pgsql_interrupt_handler(sig);
+
+	/*
+	 * pqsignal() hands back whatever was installed before us, and when the
+	 * module is loaded from shared_preload_libraries that is the postmaster's
+	 * disposition rather than a backend handler - so it can be any of NULL,
+	 * SIG_DFL or SIG_IGN, none of which can be called.
+	 */
+	if (pgsql_interrupt_handler != NULL &&
+		pgsql_interrupt_handler != SIG_DFL &&
+		pgsql_interrupt_handler != SIG_IGN)
+		pgsql_interrupt_handler(sig);
+
+	errno = save_errno;
 
 	return;
 }
@@ -742,7 +762,18 @@ orafce_send_mail(char *sender,
 #if LIBCURL_VERSION_NUM >= 0x072700 /* 7.39.0 */
 
 			if (res == CURLE_ABORTED_BY_CALLBACK)
+			{
+				/*
+				 * Let PostgreSQL raise this: it knows whether the transfer was
+				 * cancelled or the backend is being terminated, and reports
+				 * each with the right severity and error code.  The elog is
+				 * only a fallback for the case where neither flag is set,
+				 * which is our own SIGINT path on releases before 18.
+				 */
+				CHECK_FOR_INTERRUPTS();
+
 				elog(ERROR, "canceling statement due to user request");
+			}
 
 #endif
 
