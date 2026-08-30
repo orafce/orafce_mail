@@ -851,13 +851,14 @@ orafce_mail_send_attach_raw(PG_FUNCTION_ARGS)
  * 		cc varchar2 DEFAULT NULL,
  * 		bcc varchar2 DEFAULT NULL,
  * 		subject varchar2 DEFAULT NULL,
- * 		message varchar2
- * 		mime_type varchar2 DEFAULT 'text/plain; charset=us-ascii',
- * 		priority integer DEFAULT NULL
- * 		attachment varchar2,
+ * 		message varchar2 DEFAULT NULL,
+ * 		mime_type varchar2 DEFAULT NULL,
+ * 		priority integer DEFAULT NULL,
+ * 		attachment varchar2 DEFAULT NULL,
  * 		att_inline boolean DEFAULT true,
- * 		att_mime_type varchar2 DEFAULT 'text/plain;charset=us-ascii',
- * 		att_filename varchar2 DEFAULT NULL)
+ * 		att_mime_type varchar2 DEFAULT NULL,
+ * 		att_filename varchar2 DEFAULT NULL,
+ * 		replyto varchar2 DEFAULT NULL)
  *
  */
 Datum

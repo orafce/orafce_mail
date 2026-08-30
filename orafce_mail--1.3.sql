@@ -67,10 +67,10 @@ CREATE PROCEDURE utl_mail.send_attach_varchar2(
 	priority integer DEFAULT NULL,
 	attachment oracle.varchar2 DEFAULT NULL,
 	att_inline boolean DEFAULT true,
-	att_mime_type oracle.varchar2 DEFAULT 'application/octet',
+	att_mime_type oracle.varchar2 DEFAULT NULL,
 	att_filename oracle.varchar2 DEFAULT NULL,
 	replyto oracle.varchar2 DEFAULT NULL)
-AS 'MODULE_PATHNAME','orafce_mail_send_attach_raw'
+AS 'MODULE_PATHNAME','orafce_mail_send_attach_varchar2'
 LANGUAGE C;
 
 CREATE PROCEDURE dbms_mail.send(
