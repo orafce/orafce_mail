@@ -519,16 +519,18 @@ orafce_send_mail(char *sender,
 	if (curl)
 	{
 		CURLcode	res;
-		struct curl_slist *recip = NULL;
-		struct curl_slist *headers = NULL;
-		curl_mime *mime = NULL;
+		struct curl_slist *volatile recip = NULL;
+		struct curl_slist *volatile headers = NULL;
+		curl_mime *volatile mime = NULL;
 		curl_mimepart *part;
 		BinaryReader reader;
 		BinaryReader message_reader;
-		DynamicBuffer dbuf, *_dbuf;
+		DynamicBuffer dbuf;
+		DynamicBuffer *volatile _dbuf = NULL;
 
 		memset(&message_reader, 0, sizeof(BinaryReader));
 		memset(&reader, 0, sizeof(BinaryReader));
+		memset(&dbuf, 0, sizeof(DynamicBuffer));
 
 		PG_TRY();
 		{
@@ -555,14 +557,7 @@ orafce_send_mail(char *sender,
 			 * MIME I have to collect headers in dynamic string.
 			 */
 			if (!attachment_data)
-			{
-				dbuf.data = NULL;
-				dbuf.size = 0;
-				dbuf.used = 0;
 				_dbuf = &dbuf;
-			}
-			else
-				_dbuf = NULL;
 
 			headers = add_header_item(headers, _dbuf, "From: ", sender);
 			headers = add_header_item(headers, _dbuf, "To: " , recipients);
@@ -783,17 +778,23 @@ orafce_send_mail(char *sender,
 						 errmsg("cannot send mail"),
 						 errdetail("curl_easy_perform() failed: %s", curl_easy_strerror(res))));
 
-			if (_dbuf)
+			if (_dbuf && _dbuf->data)
+			{
 				pfree(_dbuf->data);
+				_dbuf->data = NULL;
+			}
 
 			curl_slist_free_all(recip);
+			recip = NULL;
 			curl_slist_free_all(headers);
+			headers = NULL;
 			curl_easy_cleanup(curl);
 			curl_mime_free(mime);
+			mime = NULL;
 		}
 		PG_CATCH();
 		{
-			if (_dbuf)
+			if (_dbuf && _dbuf->data)
 				pfree(_dbuf->data);
 
 			curl_slist_free_all(recip);
