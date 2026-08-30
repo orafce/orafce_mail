@@ -278,26 +278,66 @@ add_header_priority_item(struct curl_slist *sl, DynamicBuffer *dbuf, int priorit
 }
 
 /*
+ * Whitespace that can surround an address in a list.  Deliberately not
+ * isspace(), which is locale dependent and has undefined behaviour for the
+ * negative values a plain char produces for bytes above 127.
+ */
+static bool
+is_list_space(char c)
+{
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
+/*
  * Parse string as comma delimited list.
  *
- * Attention, this function modifies input string.
+ * The input is left alone: the caller goes on to build the To: header from the
+ * same string, and used to find only the first recipient still there.  Tokens
+ * are trimmed of surrounding whitespace, so that a list written the way a
+ * person would write it does not put a space inside the angle brackets of
+ * RCPT TO, and empty tokens are skipped.
  */
 static struct curl_slist *
-add_fields(struct curl_slist *sl, char *str)
+add_fields(struct curl_slist *sl, const char *str)
 {
-	char	   *tok;
+	const char *ptr = str;
 
 	if (!str)
 		return sl;
 
-	tok = strtok(str, ",");
-	while (tok)
+	for (;;)
 	{
-		sl = curl_slist_append(sl, tok);
-		if (!sl)
-			elog(ERROR, "out of memory");
+		const char *start;
+		const char *end;
 
-		tok = strtok(NULL, ",");
+		while (*ptr != '\0' && *ptr != ',')
+			ptr++;
+
+		/* trim whitespace from both ends of the token we just scanned */
+		start = str;
+		end = ptr;
+
+		while (start < end && is_list_space(*start))
+			start++;
+		while (end > start && is_list_space(*(end - 1)))
+			end--;
+
+		if (end > start)
+		{
+			char	   *tok = pnstrdup(start, end - start);
+
+			sl = curl_slist_append(sl, tok);
+			pfree(tok);
+
+			if (!sl)
+				elog(ERROR, "out of memory");
+		}
+
+		if (*ptr == '\0')
+			break;
+
+		/* step over the separator and start the next token after it */
+		str = ++ptr;
 	}
 
 	return sl;
