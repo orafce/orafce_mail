@@ -472,7 +472,8 @@ orafce_send_mail(char *sender,
 				 size_t attachment_size,
 				 char *att_mime_type,
 				 char *att_filename,
-				 bool att_is_text)
+				 bool att_is_text,
+				 bool att_inline)
 {
 	CURL	   *curl;
 	char		charbuffer[1024];
@@ -621,9 +622,39 @@ orafce_send_mail(char *sender,
 				(void) curl_mime_encoder(part, "base64");
 
 				if (att_filename)
-				{
 					CHECK_OK(curl_mime_filename(part, att_filename));
-					CHECK_OK(curl_mime_name(part, att_filename));
+
+				/*
+				 * Say how the part is meant to be presented.  libcurl only
+				 * synthesises a Content-Disposition for a part that has none
+				 * of its own, and the one it synthesises is always
+				 * "attachment", so att_inline had no effect whatever it was
+				 * set to until this header was supplied explicitly.
+				 */
+				{
+					struct curl_slist *part_headers = NULL;
+					char	   *disposition;
+
+					if (att_filename)
+						disposition = psprintf("Content-Disposition: %s; filename=\"%s\"",
+											   att_inline ? "inline" : "attachment",
+											   att_filename);
+					else
+						disposition = psprintf("Content-Disposition: %s",
+											   att_inline ? "inline" : "attachment");
+
+					part_headers = curl_slist_append(NULL, disposition);
+					if (!part_headers)
+						elog(ERROR, "out of memory");
+
+					pfree(disposition);
+
+					/*
+					 * curl_mime_headers() takes ownership of the list when
+					 * told to, so it is freed with the mime handle even if
+					 * the call itself fails.
+					 */
+					CHECK_OK(curl_mime_headers(part, part_headers, 1));
 				}
 
 				reader.data = attachment_data;
@@ -803,6 +834,7 @@ orafce_mail_send(PG_FUNCTION_ARGS)
 					 0,
 					 NULL,
 					 NULL,
+					 false,
 					 false);
 
 	return (Datum) 0;
@@ -837,6 +869,7 @@ orafce_mail_send_attach_raw(PG_FUNCTION_ARGS)
 	volatile int priority = 0;
 	char	   *att_mime_type;
 	char	   *att_filename;
+	bool		att_inline;
 	volatile bool priority_is_null = false;
 	bytea	   *vlena;
 	char	   *attachment_data;
@@ -860,6 +893,8 @@ orafce_mail_send_attach_raw(PG_FUNCTION_ARGS)
 	attachment_data = VARDATA_ANY(vlena);
 	attachment_size = (size_t) VARSIZE_ANY_EXHDR(vlena);
 
+	att_inline = PG_ARGISNULL(9) ? true : PG_GETARG_BOOL(9);
+
 	att_mime_type = null_or_empty_arg(fcinfo, 10);
 	att_filename = null_or_empty_arg(fcinfo, 11);
 
@@ -879,7 +914,8 @@ orafce_mail_send_attach_raw(PG_FUNCTION_ARGS)
 					 attachment_size,
 					 att_mime_type,
 					 att_filename,
-					 false);
+					 false,
+					 att_inline);
 
 	return (Datum) 0;
 }
@@ -914,6 +950,7 @@ orafce_mail_send_attach_varchar2(PG_FUNCTION_ARGS)
 	volatile int priority = 0;
 	char	   *att_mime_type;
 	char	   *att_filename;
+	bool		att_inline;
 	volatile bool priority_is_null = false;
 	bytea	   *vlena;
 	char	   *attachment_data;
@@ -937,6 +974,8 @@ orafce_mail_send_attach_varchar2(PG_FUNCTION_ARGS)
 	attachment_data = VARDATA_ANY(vlena);
 	attachment_size = (size_t) VARSIZE_ANY_EXHDR(vlena);
 
+	att_inline = PG_ARGISNULL(9) ? true : PG_GETARG_BOOL(9);
+
 	att_mime_type = null_or_empty_arg(fcinfo, 10);
 	att_filename = null_or_empty_arg(fcinfo, 11);
 
@@ -956,7 +995,8 @@ orafce_mail_send_attach_varchar2(PG_FUNCTION_ARGS)
 					 attachment_size,
 					 att_mime_type,
 					 att_filename,
-					 true);
+					 true,
+					 att_inline);
 
 	return (Datum) 0;
 }
@@ -1005,6 +1045,7 @@ orafce_mail_dbms_mail_send(PG_FUNCTION_ARGS)
 					 0,
 					 NULL,
 					 NULL,
+					 false,
 					 false);
 
 	return (Datum) 0;
