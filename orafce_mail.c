@@ -230,36 +230,30 @@ not_null_not_empty_arg(FunctionCallInfo fcinfo, int argno, const char *fcname, c
 static struct curl_slist *
 add_header_item(struct curl_slist *sl, DynamicBuffer *dbuf, const char *fieldname, const char *arg)
 {
-	char	   *buf, *ptr;
+	StringInfoData str;
 
 	if (!arg)
 		return sl;
 
-	buf = malloc(strlen(fieldname) + strlen(arg) + 2);
-	if (!buf)
-		elog(ERROR, "out of memory");
+	Assert(fieldname);
 
-	ptr = buf;
-	while (*fieldname)
-		*ptr++ = *fieldname++;
-
-	while (*arg)
-		*ptr++ = *arg++;
-
-	*ptr = '\0';
+	initStringInfo(&str);
+	appendStringInfoString(&str, fieldname);
+	appendStringInfoString(&str, arg);
 
 	if (dbuf)
 	{
-		add_line(dbuf, buf);
+		add_line(dbuf, str.data);
 	}
 	else
 	{
-		sl = curl_slist_append(sl, buf);
+		/* curl_slist_append does a copy of buf */
+		sl = curl_slist_append(sl, str.data);
 		if (!sl)
 			elog(ERROR, "out of memory");
 	}
 
-	free(buf);
+	pfree(str.data);
 
 	return sl;
 }
