@@ -622,7 +622,7 @@ orafce_send_mail(char *sender,
 				headers = add_header_item(headers, _dbuf, "Content-Transfer-Encoding: ", "8bit");
 
 				message_reader.data = message;
-				message_reader.size = strlen(message);
+				message_reader.size = message ? strlen(message) : 0;
 				message_reader.position = 0;
 
 				if (!mime_type || strncmp(mime_type, "text/plain;", 11) == 0)
