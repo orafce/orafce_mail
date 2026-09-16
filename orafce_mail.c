@@ -687,6 +687,12 @@ orafce_send_mail(char *sender,
 						disposition = psprintf("Content-Disposition: %s",
 											   att_inline ? "inline" : "attachment");
 
+					/*
+					 * Note: I tested inlining against gmail client, and looks so
+					 * Content-Disposition is ignored. More important is different
+					 * attribute - Content-ID. But this attribute is not supported
+					 * by UTL_MAIL. Without it, no attachment is inlined (in gmail).
+					 */
 					part_headers = curl_slist_append(NULL, disposition);
 					if (!part_headers)
 						elog(ERROR, "out of memory");
