@@ -384,8 +384,7 @@ read_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 				else
 					break;
 			}
-
-			if (rptr[0] == '\n')
+			else if (rptr[0] == '\n')
 			{
 				if (write_buffer_size >= 2)
 				{
