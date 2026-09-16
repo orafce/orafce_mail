@@ -270,6 +270,27 @@ not_null_not_empty_arg(FunctionCallInfo fcinfo, int argno, const char *fcname, c
 }
 
 /*
+ * A header field, and an address in the SMTP envelope, ends at the first CR
+ * or LF.  Anything after one in an argument is therefore not part of the
+ * value the caller thinks they are passing: in a header it becomes further
+ * headers, or - after an empty line - the body of the message, and in an
+ * address it becomes another SMTP command.  There is no way to represent a
+ * line break in these fields, so reject it rather than send something other
+ * than what was asked for.
+ */
+static void
+no_line_breaks_arg(const char *str, const char *fcname, const char *argname)
+{
+	if (str && strpbrk(str, "\r\n") != NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("line break is not allowed"),
+				 errhint("The value of argument \"%s\" of function \"%s\" contains a line break.",
+						  argname,
+						  fcname)));
+}
+
+/*
  * CURL list is linked list of duplicated strings. This routine
  * does formatting of one row of header and add this row to list.
  *
@@ -530,7 +551,8 @@ CHECK_OK(CURLcode res)
 }
 
 static void
-orafce_send_mail(char *sender,
+orafce_send_mail(const char *fcname,
+				 char *sender,
 				 char *recipients,
 				 char *cc,
 				 char *bcc,
@@ -549,6 +571,22 @@ orafce_send_mail(char *sender,
 {
 	CURL	   *curl;
 	char		charbuffer[1024];
+
+	/*
+	 * Everything that ends up in a header field or in the envelope, which is
+	 * all the arguments except the two that carry content.  Done here rather
+	 * than in the callers so that no entry point can be added later that
+	 * forgets it.
+	 */
+	no_line_breaks_arg(sender, fcname, "sender");
+	no_line_breaks_arg(recipients, fcname, "recipients");
+	no_line_breaks_arg(cc, fcname, "cc");
+	no_line_breaks_arg(bcc, fcname, "bcc");
+	no_line_breaks_arg(subject, fcname, "subject");
+	no_line_breaks_arg(replyto, fcname, "replyto");
+	no_line_breaks_arg(mime_type, fcname, "mime_type");
+	no_line_breaks_arg(att_mime_type, fcname, "att_mime_type");
+	no_line_breaks_arg(att_filename, fcname, "att_filename");
 
 	if (!check_priv_of_role(&ORAFCE_MAIL_ROLE_USE, "orafce_mail"))
 		ereport(ERROR,
@@ -914,7 +952,8 @@ orafce_mail_send(PG_FUNCTION_ARGS)
 
 	replyto = null_or_empty_arg(fcinfo, 8);
 
-	orafce_send_mail(sender,
+	orafce_send_mail("utl_mail.send_attach_raw",
+					 sender,
 					 recipients,
 					 cc,
 					 bcc,
@@ -994,7 +1033,8 @@ orafce_mail_send_attach_raw(PG_FUNCTION_ARGS)
 
 	replyto = null_or_empty_arg(fcinfo, 12);
 
-	orafce_send_mail(sender,
+	orafce_send_mail("utl_mail.send_attach_raw",
+					 sender,
 					 recipients,
 					 cc,
 					 bcc,
@@ -1075,7 +1115,8 @@ orafce_mail_send_attach_varchar2(PG_FUNCTION_ARGS)
 
 	replyto = null_or_empty_arg(fcinfo, 12);
 
-	orafce_send_mail(sender,
+	orafce_send_mail("utl_mail.send_attach_varchar2",
+					 sender,
 					 recipients,
 					 cc,
 					 bcc,
@@ -1125,7 +1166,8 @@ orafce_mail_dbms_mail_send(PG_FUNCTION_ARGS)
 	replyto = null_or_empty_arg(fcinfo, 5);
 	message = null_or_empty_arg(fcinfo, 6);
 
-	orafce_send_mail(sender,
+	orafce_send_mail("dbms_mail.send",
+					 sender,
 					 recipients,
 					 cc,
 					 bcc,
