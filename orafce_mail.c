@@ -35,10 +35,6 @@ static Oid		ORAFCE_MAIL_ROLE_CONFIG_USERPWD = InvalidOid;
 
 typedef struct
 {
-	char	   *header_data;
-	size_t		header_size;
-	size_t		header_position;
-
 	char	   *data;
 	size_t		size;
 	size_t		position;
@@ -319,38 +315,6 @@ read_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 		((size * nmemb) < 1))
 		return 0;
 
-	/*
-	 * When we have to send header's lines first
-	 */
-	not_processed_yet = reader->header_size - reader->header_position;
-	if (reader->header_size > reader->header_position)
-	{
-		char	   *read_buffer = reader->header_data + reader->header_position;
-
-		if (write_buffer_size > not_processed_yet)
-			write_buffer_size = not_processed_yet;
-
-		memcpy(ptr, read_buffer, write_buffer_size);
-		reader->header_position += write_buffer_size;
-
-		return write_buffer_size;
-	}
-
-	/*
-	 * Header was processed, now print empty line as separator
-	 */
-	if (reader->header_size > 0)
-	{
-		memcpy(ptr, "\r\n", 2);
-		reader->header_size = 0;
-		reader->header_position = 0;
-
-		return 2;
-	}
-
-	/*
-	 * Now, send data.
-	 */
 	not_processed_yet = reader->size - reader->position;
 	if (not_processed_yet > 0)
 	{
@@ -678,9 +642,14 @@ orafce_send_mail(char *sender,
 				if (!_dbuf)
 					elog(ERROR, "dynamic buffer is NULL");
 
-				message_reader.header_data = _dbuf->data;
-				message_reader.header_size = _dbuf->used;
-				message_reader.header_position = 0;
+				/*
+				 * The blank line that separates the header block from the
+				 * body is part of the header stream, not a special case for
+				 * the read callback: served from here it gets the same
+				 * bounds handling as every other header byte.
+				 */
+				if (_dbuf->used > 0)
+					add_line(_dbuf, "");
 			}
 
 #if LIBCURL_VERSION_NUM >= 0x072700 /* 7.39.0 */
