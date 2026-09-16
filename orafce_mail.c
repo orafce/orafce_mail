@@ -295,6 +295,20 @@ no_line_breaks_arg(const char *str, const char *fcname, const char *argname)
 }
 
 /*
+ * Whether a body of this media type is text, and so has to have its line
+ * endings converted to CRLF before it goes out.  A missing type means
+ * text/plain, which is what the extension supplies in that case.
+ *
+ * Only the type matters, not the parameters that may follow it, and a media
+ * type is case insensitive (RFC 2045 5.1).
+ */
+static bool
+is_text_mime_type(const char *mime_type)
+{
+	return mime_type == NULL || pg_strncasecmp(mime_type, "text/", 5) == 0;
+}
+
+/*
  * The name to put in a charset parameter for the encoding the client is
  * using.
  *
@@ -778,7 +792,7 @@ orafce_send_mail(const char *fcname,
 					message_reader.size = strlen(message);
 					message_reader.position = 0;
 
-					if (!mime_type || strncmp(mime_type, "text/plain;", 11) == 0)
+					if (is_text_mime_type(mime_type))
 						message_reader.unix2dos_nl = true;
 					else
 						message_reader.unix2dos_nl = false;
@@ -865,8 +879,7 @@ orafce_send_mail(const char *fcname,
 				reader.size = attachment_size;
 				reader.position = 0;
 
-				if (att_is_text &&
-					(!att_mime_type || strncmp(att_mime_type, "text/plain;", 11) == 0))
+				if (att_is_text && is_text_mime_type(att_mime_type))
 					reader.unix2dos_nl = true;
 				else
 					reader.unix2dos_nl = false;
@@ -900,7 +913,7 @@ orafce_send_mail(const char *fcname,
 				message_reader.size = message ? strlen(message) : 0;
 				message_reader.position = 0;
 
-				if (!mime_type || strncmp(mime_type, "text/plain;", 11) == 0)
+				if (is_text_mime_type(mime_type))
 					message_reader.unix2dos_nl = true;
 				else
 					message_reader.unix2dos_nl = false;
