@@ -626,6 +626,21 @@ orafce_send_mail(const char *fcname,
 		{
 			OOM_CHECK(curl_easy_setopt(curl, CURLOPT_URL, orafce_smtp_url));
 
+			/*
+			 * libcurl decides what to do from the scheme in the url, and by
+			 * default it will do any of the twenty-odd things it knows how
+			 * to do.  Only the two that send mail are wanted here; without
+			 * this, a url of file:///... makes the transfer write the
+			 * message to that path, as the operating system user the server
+			 * runs as.
+			 */
+#if LIBCURL_VERSION_NUM >= 0x075500 /* 7.85.0 */
+			CHECK_OK(curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "smtp,smtps"));
+#else
+			CHECK_OK(curl_easy_setopt(curl, CURLOPT_PROTOCOLS,
+									  (long) (CURLPROTO_SMTP | CURLPROTO_SMTPS)));
+#endif
+
 			if (orafce_smtp_userpwd)
 				OOM_CHECK(curl_easy_setopt(curl, CURLOPT_USERPWD, orafce_smtp_userpwd));
 
