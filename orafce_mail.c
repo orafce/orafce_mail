@@ -9,6 +9,7 @@
 #include "funcapi.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
+#include "access/xact.h"
 #include "utils/acl.h"
 #include "utils/builtins.h"
 #include "utils/elog.h"
@@ -80,6 +81,28 @@ check_priv_of_role(Oid *oidptr, char *rolname)
 		*oidptr = get_role_oid(rolname, false);
 
 	return has_privs_of_role(GetUserId(), *oidptr);
+}
+
+/*
+* The privilege checks below read pg_authid, so they can only run in a
+* backend that is attached to a database and inside a transaction.  A check
+* hook is called in other situations too - in particular
+* DefineCustomStringVariable() calls it for the boot value, which happens in
+* the postmaster when the library is preloaded, long before there is any
+* catalog to read - and the value being checked is then not something a user
+* chose anyway.  Restrict the check to the sources that carry a user request:
+* PGC_S_SESSION for SET, PGC_S_CLIENT for the startup packet and PGOPTIONS,
+* and PGC_S_TEST for the trial assignment ALTER ROLE/DATABASE SET does.
+*/
+static bool
+user_settable_source(GucSource source)
+{
+	if (source != PGC_S_SESSION &&
+		source != PGC_S_CLIENT &&
+		source != PGC_S_TEST)
+		return false;
+
+	return IsTransactionState();
 }
 
 static void
@@ -1127,7 +1150,9 @@ smtp_server_url_acl_check(char **newval, void **extra, GucSource source)
 {
 	(void) newval;
 	(void) extra;
-	(void) source;
+
+	if (!user_settable_source(source))
+		return true;
 
 	if (!check_priv_of_role(&ORAFCE_MAIL_ROLE_CONFIG_URL,
 							"orafce_mail_config_url"))
@@ -1146,7 +1171,9 @@ smtp_server_userpwd_acl_check(char **newval, void **extra, GucSource source)
 {
 	(void) newval;
 	(void) extra;
-	(void) source;
+
+	if (!user_settable_source(source))
+		return true;
 
 	if (!check_priv_of_role(&ORAFCE_MAIL_ROLE_CONFIG_USERPWD,
 							"orafce_mail_config_userpwd"))
