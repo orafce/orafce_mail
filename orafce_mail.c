@@ -1286,7 +1286,7 @@ _PG_init(void)
 									&orafce_smtp_userpwd,
 									NULL,
 									PGC_USERSET,
-									0,
+									GUC_SUPERUSER_ONLY,
 									smtp_server_userpwd_acl_check,
 									NULL, NULL);
 
