@@ -291,6 +291,46 @@ no_line_breaks_arg(const char *str, const char *fcname, const char *argname)
 }
 
 /*
+ * The name to put in a charset parameter for the encoding the client is
+ * using.
+ *
+ * get_encoding_name_for_icu() has no name for the four encodings ICU cannot
+ * represent.  Older releases raise an error for them and PG 16 and later
+ * return NULL, which was then handed to a %s conversion, so a session in
+ * SQL_ASCII either failed or sent charset="(null)" - and formatting NULL is
+ * undefined behaviour rather than something to rely on.  Name those four
+ * here instead; they all have a name that mail can use.
+ */
+static const char *
+client_encoding_charset(void)
+{
+	int			encoding = pg_get_client_encoding();
+
+	switch (encoding)
+	{
+		case PG_SQL_ASCII:
+			return "us-ascii";
+
+		/*
+		 * JIS X 0213:2004 has no name in the IANA registry; these are the
+		 * spellings iconv and the Japanese mailers use.
+		 */
+		case PG_EUC_JIS_2004:
+			return "EUC-JIS-2004";
+
+		case PG_SHIFT_JIS_2004:
+			return "Shift_JIS-2004";
+
+		/* not a client encoding, but do not leave it to return NULL */
+		case PG_MULE_INTERNAL:
+			return pg_encoding_to_char(encoding);
+
+		default:
+			return get_encoding_name_for_icu(encoding);
+	}
+}
+
+/*
  * Append str as the body of an RFC 2822 quoted-string, without the quotes
  * themselves.  A quote in the value would otherwise end the string early and
  * everything after it would be read as further parameters; a backslash would
@@ -711,7 +751,7 @@ orafce_send_mail(const char *fcname,
 						snprintf(charbuffer,
 								 sizeof(charbuffer),
 								 "text/plain; charset=\"%s\"",
-								 get_encoding_name_for_icu(pg_get_client_encoding()));
+								 client_encoding_charset());
 
 						CHECK_OK(curl_mime_type(part, charbuffer));
 					}
@@ -750,7 +790,7 @@ orafce_send_mail(const char *fcname,
 						snprintf(charbuffer,
 								 sizeof(charbuffer),
 								 "text/plain; charset=\"%s\"",
-								 get_encoding_name_for_icu(pg_get_client_encoding()));
+								 client_encoding_charset());
 
 						CHECK_OK(curl_mime_type(part, charbuffer));
 					}
@@ -831,7 +871,7 @@ orafce_send_mail(const char *fcname,
 					snprintf(charbuffer,
 							 sizeof(charbuffer),
 							 "text/plain; charset=\"%s\"",
-							 get_encoding_name_for_icu(pg_get_client_encoding()));
+							 client_encoding_charset());
 
 					headers = add_header_item(headers, _dbuf, "Content-Type: ", charbuffer);
 				}
