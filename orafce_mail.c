@@ -74,6 +74,8 @@ static volatile sig_atomic_t interrupt_requested = 0;
 
 #endif
 
+#endif /* 7.39.0 */
+
 static bool
 check_priv_of_role(Oid *oidptr, char *rolname)
 {
@@ -138,6 +140,8 @@ add_line(DynamicBuffer *dbuf, char *str)
 * the non-zero return value will cue libcurl to abort the transfer,
 * leading to a CURLE_ABORTED_BY_CALLBACK return on the curl_easy_perform()
 */
+#if LIBCURL_VERSION_NUM >= 0x072700 /* 7.39.0 */
+
 static int
 progress_callback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow)
 {
@@ -668,10 +672,12 @@ orafce_send_mail(const char *fcname,
 				 errmsg("orafce.smtp_url is not specified"),
 				 errdetail("The address (url) of smtp service is not known.")));
 
+#if LIBCURL_VERSION_NUM >= 0x072700 /* 7.39.0 */
 #if PG_VERSION_NUM < 180000
 
 	interrupt_requested = 0;
 
+#endif
 #endif
 
 	curl = curl_easy_init();
