@@ -1030,8 +1030,8 @@ orafce_mail_send(PG_FUNCTION_ARGS)
 	volatile bool priority_is_null = false;
 	char	   *replyto;
 
-	sender = not_null_not_empty_arg(fcinfo, 0, "utl_mail.send_attach_raw", "sender");
-	recipients = not_null_not_empty_arg(fcinfo, 1, "utl_mail.send_attach_raw", "recipients");
+	sender = not_null_not_empty_arg(fcinfo, 0, "utl_mail.send", "sender");
+	recipients = not_null_not_empty_arg(fcinfo, 1, "utl_mail.send", "recipients");
 	cc = null_or_empty_arg(fcinfo, 2);
 	bcc = null_or_empty_arg(fcinfo, 3);
 	subject = null_or_empty_arg(fcinfo, 4);
@@ -1045,7 +1045,7 @@ orafce_mail_send(PG_FUNCTION_ARGS)
 
 	replyto = null_or_empty_arg(fcinfo, 8);
 
-	orafce_send_mail("utl_mail.send_attach_raw",
+	orafce_send_mail("utl_mail.send",
 					 sender,
 					 recipients,
 					 cc,
