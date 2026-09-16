@@ -776,7 +776,14 @@ orafce_send_mail(const char *fcname,
 
 			OOM_CHECK(curl_easy_setopt(curl, CURLOPT_MAIL_FROM, sender));
 
+			/*
+			 * The envelope decides who the message is delivered to; the Cc
+			 * and Bcc header fields decide nothing at all.  Both lists have
+			 * to be named here as well or their addresses receive nothing.
+			 */
 			recip = add_fields(recip, recipients);
+			recip = add_fields(recip, cc);
+			recip = add_fields(recip, bcc);
 
 			(void) curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, recip);
 
@@ -790,7 +797,14 @@ orafce_send_mail(const char *fcname,
 			headers = add_header_item(headers, _dbuf, "From: ", sender);
 			headers = add_header_item(headers, _dbuf, "To: " , recipients);
 			headers = add_header_item(headers, _dbuf, "Cc: ", cc);
-			headers = add_header_item(headers, _dbuf, "Bcc: ", bcc);
+
+			/*
+			 * No Bcc field.  It is the one field whose whole purpose is that
+			 * the people who receive the message do not see it (RFC 5322
+			 * 3.6.3); sending it tells every recipient who was blind copied.
+			 * The addresses are in the envelope above, which is what gets
+			 * them delivered.
+			 */
 			headers = add_header_item(headers, _dbuf, "Reply-To: ", replyto);
 			headers = add_header_priority_item(headers, _dbuf, priority, priority_is_null);
 			headers = add_header_item(headers, _dbuf, "Subject: ", subject);
