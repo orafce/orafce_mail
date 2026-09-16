@@ -423,6 +423,9 @@ seek_callback(void *arg, curl_off_t offset, int origin)
 
 	switch(origin)
 	{
+		case SEEK_SET:
+			break;
+
 		case SEEK_END:
 			offset += p->size;
 			break;
@@ -430,9 +433,12 @@ seek_callback(void *arg, curl_off_t offset, int origin)
 		case SEEK_CUR:
 			offset += p->position;
 			break;
+
+		default:
+			return CURL_SEEKFUNC_FAIL;
 	}
 
-	if(offset < 0)
+	if(offset < 0 || (size_t) offset > p->size)
 		return CURL_SEEKFUNC_FAIL;
 
 	p->position = offset;
