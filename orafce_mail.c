@@ -46,6 +46,14 @@ typedef struct
 
 	bool		unix2dos_nl;
 
+	/*
+	 * Set when a CR has been written but the LF that belongs with it did not
+	 * fit; the next call emits the LF before anything else.  Without it a
+	 * one byte buffer can never make progress, and returning zero bytes
+	 * tells libcurl the data has ended.
+	 */
+	bool		pending_lf;
+
 } BinaryReader;
 
 typedef struct
@@ -523,7 +531,7 @@ read_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 	}
 
 	not_processed_yet = reader->size - reader->position;
-	if (not_processed_yet > 0)
+	if (not_processed_yet > 0 || reader->pending_lf)
 	{
 		char	   *write_buffer = ptr;
 		char	   *read_buffer = reader->data + reader->position;
@@ -540,6 +548,14 @@ read_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 			return write_buffer_size;
 		}
 
+		/* the other half of a line ending split across two calls */
+		if (reader->pending_lf)
+		{
+			*ptr++ = '\n';
+			write_buffer_size -= 1;
+			reader->pending_lf = false;
+		}
+
 		while (not_processed_yet > 0 && write_buffer_size > 0)
 		{
 			if ((not_processed_yet > 1) &&
@@ -553,7 +569,18 @@ read_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 					not_processed_yet -= 2;
 				}
 				else
+				{
+					/*
+					 * Only room for the CR.  Write it, remember that its LF
+					 * is still owed, and let the next call deliver it.
+					 */
+					*ptr++ = *rptr++;
+					rptr++;
+					write_buffer_size -= 1;
+					not_processed_yet -= 2;
+					reader->pending_lf = true;
 					break;
+				}
 			}
 			else if (rptr[0] == '\n')
 			{
@@ -565,7 +592,14 @@ read_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 					not_processed_yet -= 1;
 				}
 				else
+				{
+					*ptr++ = '\r';
+					rptr++;
+					write_buffer_size -= 1;
+					not_processed_yet -= 1;
+					reader->pending_lf = true;
 					break;
+				}
 			}
 			else
 			{
