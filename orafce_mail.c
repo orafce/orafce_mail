@@ -35,6 +35,10 @@ static Oid		ORAFCE_MAIL_ROLE_CONFIG_USERPWD = InvalidOid;
 
 typedef struct
 {
+	char	   *header_data;
+	size_t		header_size;
+	size_t		header_position;
+
 	char	   *data;
 	size_t		size;
 	size_t		position;
@@ -368,6 +372,24 @@ read_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 		(nmemb == 0) ||
 		((size * nmemb) < 1))
 		return 0;
+
+	/*
+	 * When we have to send header's lines first
+	 */
+	if (reader->header_size > reader->header_position)
+	{
+		char	   *read_buffer = reader->header_data + reader->header_position;
+
+		not_processed_yet = reader->header_size - reader->header_position;
+
+		if (write_buffer_size > not_processed_yet)
+			write_buffer_size = not_processed_yet;
+
+		memcpy(ptr, read_buffer, write_buffer_size);
+		reader->header_position += write_buffer_size;
+
+		return write_buffer_size;
+	}
 
 	not_processed_yet = reader->size - reader->position;
 	if (not_processed_yet > 0)
@@ -736,6 +758,10 @@ orafce_send_mail(char *sender,
 				 */
 				if (_dbuf->used > 0)
 					add_line(_dbuf, "");
+
+				message_reader.header_data = _dbuf->data;
+				message_reader.header_size = _dbuf->used;
+				message_reader.header_position = 0;
 			}
 
 #if LIBCURL_VERSION_NUM >= 0x072700 /* 7.39.0 */
