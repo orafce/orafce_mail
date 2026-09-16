@@ -452,10 +452,17 @@ read_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 	return 0;
 }
 
+/*
+ * This can be used only when header is empty
+ * and binary mode is used.
+ */
 static int
 seek_callback(void *arg, curl_off_t offset, int origin)
 {
 	BinaryReader *p = (BinaryReader *) arg;
+
+	Assert(p->header_size == 0);
+	Assert(!p->unix2dos_nl);
 
 	switch(origin)
 	{
@@ -463,11 +470,11 @@ seek_callback(void *arg, curl_off_t offset, int origin)
 			break;
 
 		case SEEK_END:
-			offset += p->size;
+			offset += (p->header_size + p->size);
 			break;
 
 		case SEEK_CUR:
-			offset += p->position;
+			offset += (p->header_position + p->position);
 			break;
 
 		default:
