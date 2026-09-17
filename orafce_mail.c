@@ -321,9 +321,19 @@ client_encoding_charset(void)
 		case PG_SHIFT_JIS_2004:
 			return "Shift_JIS-2004";
 
+#if PG_VERSION_NUM < 190000
+
 		/* not a client encoding, but do not leave it to return NULL */
 		case PG_MULE_INTERNAL:
 			return pg_encoding_to_char(encoding);
+
+#else
+
+		/* not a client encoding, but do not leave it to return NULL */
+		case PG_UNUSED_1:
+			return pg_encoding_to_char(encoding);
+
+#endif
 
 		default:
 			return get_encoding_name_for_icu(encoding);
