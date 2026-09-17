@@ -330,7 +330,8 @@ is_text_mime_type(const char *mime_type)
 static const char *
 client_encoding_charset(void)
 {
-	int			encoding = pg_get_client_encoding();
+	/* We are on server side, so Database encoding should be used */
+	int			encoding = GetDatabaseEncoding();
 
 	switch (encoding)
 	{
