@@ -291,6 +291,25 @@ no_line_breaks_arg(const char *str, const char *fcname, const char *argname)
 }
 
 /*
+ * Append str as the body of an RFC 2822 quoted-string, without the quotes
+ * themselves.  A quote in the value would otherwise end the string early and
+ * everything after it would be read as further parameters; a backslash would
+ * quote whatever came next, including the closing quote.  This is what
+ * libcurl's own escape_string() does for the filenames it formats.
+ */
+static void
+append_quoted_string(StringInfo str, const char *value)
+{
+	for (; *value; value++)
+	{
+		if (*value == '"' || *value == '\\')
+			appendStringInfoChar(str, '\\');
+
+		appendStringInfoChar(str, *value);
+	}
+}
+
+/*
  * CURL list is linked list of duplicated strings. This routine
  * does formatting of one row of header and add this row to list.
  *
@@ -753,15 +772,18 @@ orafce_send_mail(const char *fcname,
 				 */
 				{
 					struct curl_slist *part_headers = NULL;
-					char	   *disposition;
+					StringInfoData disposition;
+
+					initStringInfo(&disposition);
+					appendStringInfo(&disposition, "Content-Disposition: %s",
+									 att_inline ? "inline" : "attachment");
 
 					if (att_filename)
-						disposition = psprintf("Content-Disposition: %s; filename=\"%s\"",
-											   att_inline ? "inline" : "attachment",
-											   att_filename);
-					else
-						disposition = psprintf("Content-Disposition: %s",
-											   att_inline ? "inline" : "attachment");
+					{
+						appendStringInfoString(&disposition, "; filename=\"");
+						append_quoted_string(&disposition, att_filename);
+						appendStringInfoChar(&disposition, '"');
+					}
 
 					/*
 					 * Note: I tested inlining against gmail client, and looks so
@@ -769,11 +791,11 @@ orafce_send_mail(const char *fcname,
 					 * attribute - Content-ID. But this attribute is not supported
 					 * by UTL_MAIL. Without it, no attachment is inlined (in gmail).
 					 */
-					part_headers = curl_slist_append(NULL, disposition);
+					part_headers = curl_slist_append(NULL, disposition.data);
 					if (!part_headers)
 						elog(ERROR, "out of memory");
 
-					pfree(disposition);
+					pfree(disposition.data);
 
 					/*
 					 * curl_mime_headers() takes ownership of the list when
